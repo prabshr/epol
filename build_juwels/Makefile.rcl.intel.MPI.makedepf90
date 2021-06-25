@@ -1,0 +1,196 @@
+##########################################################
+#
+# Before runnig make, do the following:
+#
+# module purge
+# module load apps x86
+# module load intel/2020 netcdf4/4.7.3-x86-intel hdf5/1.10.5-x86-intel aec/1.0.3-x86-intel eccodes/2.14.1-x86-intel aocl/2.1-x86-gnu
+# module switch x86 sx
+# module load mpi/2.9.0
+# export NMPI_FC_H=ifort
+#
+##########################################################
+
+### directory of the source code:
+srcdir=../src
+
+### work directory for compiling:
+objdir=./obj_intel
+
+### which branch are we on? Remove any trailing "*/", e.g., "dev/" from the name by using "notdir":
+branch := $(notdir $(shell git rev-parse --abbrev-ref HEAD))
+
+### ifort:
+
+# to find out netcdf-environment: nf-config --all
+
+NETCDF_DIR   = $(NETCDF)
+HDF5_DIR     = $(EBROOTHDF5)
+ECCODES_DIR  = $(EBROOTECCODES)
+
+DPEMVO_LIBS  = -mkl=sequential
+DPEMVO_FLAGS = -DAUXOUT_OFFLINE 
+
+
+LINKLIBS     =  -L$(ECCODES_DIR)/lib -leccodes_f90 -leccodes -ljasper -lpng -laec -L$(NETCDF_DIR)/lib -lnetcdff -lnetcdf -L$(HDF5_DIR)/lib -lhdf5_fortran -lhdf5hl_fortran -lhdf5_hl -lhdf5 -lz $(DPEMVO_LIBS)
+preprocflags =  -D__COSMO__ -DTWOMOM_SB_OLD -DNUDGING -DNETCDF -DHAS_IOMSG -DRADARFWO -DHDF5_RADAR_INPUT -DWITH_ZLIB -D__COSMO_REFL_OFFLINE__ -DGRIBAPI $(DPEMVO_FLAGS)   
+incflags     =  -I$(ECCODES_DIR)/include -I$(NETCDF_DIR)/include -I$(HDF5_DIR)/include
+debugflags   = -traceback -g
+optimflags   =  -O2
+#warnflags    =  
+
+### ifort parallel MPI:
+programmpar     =  cosmo_refl_offline_$(branch)_par_rcl-intel.exe
+f90par          =  mpifort $(optimflags) $(preprocflags) $(incflags) $(debugflags) $(warnflags) -static  -fpp
+ld90par         =  mpifort $(debugflags)
+
+
+### binary for makedepf90:
+mkdep           =  ../externals/makedepf90-2.8.8/bin/makedepf90
+mkdepflags      =  $(preprocflags) -b $(objdir)
+
+
+##########################################################
+#
+# Objects for compilation:
+#
+##########################################################
+
+
+dataobjbase =                           \
+          $(objdir)/kind_parameters.o   \
+          $(objdir)/data_parameters.o   \
+          $(objdir)/data_constants.o    \
+          $(objdir)/data_runcontrol.o   \
+          $(objdir)/data_parallel.o     \
+          $(objdir)/data_modelconfig.o  \
+          $(objdir)/data_fields.o       \
+          $(objdir)/data_io.o           \
+          $(objdir)/data_nudge_all.o    \
+          $(objdir)/data_tracer.o       \
+          $(objdir)/environment.o                \
+          $(objdir)/parallel_utilities.o         \
+          $(objdir)/wolken_konstanten.o          \
+          $(objdir)/pp_utilities.o               \
+          $(objdir)/utilities.o                  \
+          $(objdir)/time_utilities.o             \
+          $(objdir)/domain_decomposition_utils.o \
+          $(objdir)/src_tracer.o              \
+          $(objdir)/src_artifdata.o           \
+          $(objdir)/mo_fdbk_cosmo.o           \
+          $(objdir)/mo_fdbk.o                 \
+          $(objdir)/mo_fdbk_tables.o          \
+          $(objdir)/mo_kind.o                 \
+          $(objdir)/mo_netcdf_param.o         \
+          $(objdir)/mo_t_netcdf_file.o        \
+          $(objdir)/mo_t_table.o              \
+          $(objdir)/read_grib_from_index.o
+
+dataobjradar = \
+          $(objdir)/radar_data.o        \
+          $(objdir)/radar_data_io.o        \
+          $(objdir)/radar_gamma_functions_vec.o  \
+          $(objdir)/radar_data_mie.o    \
+          $(objdir)/radar_data_namelist.o    \
+          $(objdir)/radar_parallel_utilities.o   \
+          $(objdir)/radar_interface.o       \
+          $(objdir)/radar_mie_utils.o   \
+          $(objdir)/radar_mie_specint.o \
+          $(objdir)/radar_mie_meltdegree.o  \
+          $(objdir)/radar_mie_iface_cosmo_utils.o \
+          $(objdir)/radar_mie_iface_cosmo_1mom.o \
+          $(objdir)/radar_mie_iface_cosmo_2mom.o \
+          $(objdir)/radar_mie_iface_cosmo_driver.o \
+          $(objdir)/radar_mielib_vec.o  \
+          $(objdir)/radar_sphbessel_vec.o  \
+          $(objdir)/radar_utilities.o   \
+          $(objdir)/radar_model2rays.o \
+          $(objdir)/radar_output_methods.o \
+          $(objdir)/radar_process_output.o \
+          $(objdir)/radar_organize.o \
+          $(objdir)/radar_namelist_read.o \
+          $(objdir)/radar_obs_meta_list.o \
+          $(objdir)/radar_obs_meta_read.o \
+          $(objdir)/radar_obs_data_read.o \
+          $(objdir)/radar_composites.o    \
+          $(objdir)/radar_bubblegen.o  \
+          $(objdir)/radar_dualpol_t_matrix_mod.o \
+          $(objdir)/radar_dualpol_t_matrix2_mod.o
+
+
+####################################################
+#
+#     Targets for compilation
+#
+####################################################
+
+
+.SUFFIXES:
+.SUFFIXES: .f90 .o
+
+exe :    parexe
+
+
+####################################################
+#         Parallel compile:
+
+parexe : f90 = $(f90par)
+parexe : ld90 = $(ld90par)
+parexe : programm = $(programmpar)
+parexe : mkobjdir / depend / check_is_not_mpifh / $(dataobjbase) $(dataobjradar) $(objdir)/cosmo_refl_offline.o
+	echo Linking parallel program ...
+	$(ld90) -o $(programm) $(dataobjbase) $(dataobjradar) $(objdir)/cosmo_refl_offline.o $(LINKLIBS) 
+
+####################################################
+
+$(objdir)/%.o:
+	@ echo " compiling $< "
+	( cd $(objdir) && $(f90) -c  ../$<  -o ../$@ )
+
+
+####################################################
+
+clean :
+	rm -f $(objdir)//* $(programmpar) ObjDependencies
+
+####################################################
+
+check_is_mpifh:
+	if [ ! -f $(srcdir)/mpif.h ]; then  \
+          echo "ERROR: a local dummy mpif.h is not contained in src/ !";  \
+	  if [ ! -f $(srcdir)/nompi_mpif.h ]; then  \
+            echo "ERROR: nompi_mpif.h is also not contained in src/ !";  \
+            exit 1;  \
+          else	\
+            echo "FIX: Copying $(srcdir)/mpif.h from $(srcdir)/nompi_mpif.h"; \
+            cp $(srcdir)/nompi_mpif.h $(srcdir)/mpif.h; \
+          fi \
+        fi
+
+check_is_not_mpifh:
+	if [ -f $(srcdir)/mpif.h ]; then  \
+          echo "ERROR: there is a local mpif.h in src/ !";  \
+	  if [ -f $(srcdir)/nompi_mpif.h ]; then  \
+            echo "FIX: Deleting $(srcdir)/mpif.h"; \
+            rm $(srcdir)/mpif.h; \
+	  else \
+            echo "FIX: Moving $(srcdir)/mpif.h to $(srcdir)/nompi_mpif.h"; \
+            mv $(srcdir)/mpif.h $(srcdir)/nompi_mpif.h; \
+          fi \
+        fi
+
+depend ObjDependencies: 
+	$(mkdep) $(mkdepflags) $(srcdir)/*.f90 > ObjDependencies
+
+mkobjdir:
+	mkdir -p $(objdir)
+
+####################################################
+#
+# Include the ObjDependencies
+#
+####################################################
+
+
+include ObjDependencies
+
