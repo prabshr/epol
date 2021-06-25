@@ -1,0 +1,24 @@
+19.10.2010   Ulrich Blahak
+
+The build_rcl/ directory offers two different Makefiles for the DWD "routine cluster" rcl,
+one for the intel copmiler and another for gfortran ("x86-gnu").
+
+To actually compile with the one or the other, certain modules have to be
+loaded in a certain (non-intuitive) way. For ease of use, we provide
+two compiler wrappers, which set up the correct environment for each compiler
+and trigger the make-process via the respective Makefile:
+
+1) make_rcl_intel.sh -j10 / clean / ...   (uses Makefile.rcl.intel.MPI.makedepf90 and produces cosmo_refl_offline_par_rcl_intel.exe)
+
+2) make_rcl_x86-gnu.sh -j10 / clean / ... (uses Makefile.rcl.x86-gnu.MPI.makedepf90 and produces cosmo_refl_offline_par_rcl_x86-gnu.exe)
+
+Two exemplary runscripts for the DWD routine cluster (queue rc_parallel and the like) are
+provided in ../IDEAL/, which make use of these two different executables:
+
+1) run_radvop_offline_rcl-intel_grib-hourly_ilam_rotatedll
+
+2) run_radvop_offline_rcl-x86-gnu_grib-hourly_ilam_rotatedll
+
+In these runscripts, the necessary modules and environment variables are set up
+appropriately for the respective executable and a parallel job is submitted to queue "rc_parallel".
+
