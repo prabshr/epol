@@ -3,7 +3,7 @@
 
 1) First download EMVORADO-POL source codes from DKRZ
 
-2) Download epol
+2) Download epol\
 git clone https://github.com/epol
 
 3) Copy EMVORADO codes to epol
@@ -18,7 +18,8 @@ cd ..
 
 5) Running EMVORADO
 cd run_juwels\
-./job_submission.ksh 
+./job_submission.ksh\
+(*** Check user settings in the script and edit the input/ftime_file.txt for time stamps)
 
 
 
