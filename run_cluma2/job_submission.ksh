@@ -4,34 +4,47 @@
 #Namelist for PFO: $pfo_root/input/INPUT_DBZSIM1600
 #job submission script: $pfo_root/input/pfo_run.ksh
 #This script updates the namelist, job-submission script and submits the job
-
 #Log: J Mendrok, modified from bpfo job script by P Shrestha
+
+#Changes
+#Aug 26 2021 P. Shrestha
+#Aerosol perturbations do not change lookup table but does change the file ID of lookuptables,
+#so to avoide recreation, we hardwire the lookuptable to itype_gscp_hw = 2483
 
 #--------------------------------------------------------------------------------------------------------
 # User Settings
- projectdir=${HOME}
- emvodir=${projectdir}'/emvorado-offline/run_cluma2/'
+ projectdir=${HOME}'/emvorado-offline/'
+
+ emvodir=${projectdir}'/run_cluma2/'
+ executable=${projectdir}'/build_cluma2/cosmo_refl_offline_par_rcl-x86-gnu.exe'
 
  script='run_emovorad_pol_cluma2.sh'
+
+ jprefx='EMVORADO'
  
  hm='' # all
  hydroset='.TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE.' #c,r,i,s,g,h
- itype_gscp='2483'
+# hydroset='.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.TRUE.'
+ itype_gscp='2693'
  itype_refl='5'
  lambdaradar='0.032'
- casename='bonnRadar_20150705'
+ casename='PROM1'
  #compute lookup table
  do_lut='false'
- lnd='HET'
- expname='runE_6_HET2483'
- expday='01115500'
+ #
+ lnd='RHD'
+ inst=8
  model_starttime='20150704030000'
- inputdir='/daten04/pshrestha/shared-data/'${casename}'/'${lnd}${itype_gscp}'/'${expname}'/cosout/'
- casedir=${emvodir}'/BoxPol-volscan.'${expday}'.'${expname}_${casename}
+ expname='runE_'${inst}'_'${lnd}${itype_gscp}
+ inputdir='/daten04/pshrestha/shared-data/'${lnd}'_'${casename}'/'${lnd}${itype_gscp}'/'${expname}'/cosout/'
+ #expname='runART_6_HET'
+ #inputdir='/daten/daten04/pshrestha/shared-data/bonnRadar_20150705/ART/runART_6_HET/cosout/'
+ casedir=${emvodir}'/BoxPol-volscan.'${expname}_${casename}
 
 #-------------------------------------------------------------------------------------------------------
 # Prep and run cases
 
+ itype_gscp_hw='2483'
  pbsscript=job_emvorado_offline
  cd ${emvodir}
  #rm -r ${casedir}
@@ -41,11 +54,11 @@
  cp "$(readlink -f $0)" ${casedir}/
  cp $script ${casedir}/
 
- outputdir=${casedir}'/emvo_output/'
+ outputdir=${casedir}'/'${expname}'/'
  mkdir -p ${outputdir}
  workdir=${casedir}'/emvo_runs/'
  mkdir -p ${workdir}
- lutdir=${HOME}'/emvorado-offline/run_cluma2/lookuptables/'
+ lutdir=${emvodir}'/lookuptables_'${itype_gscp_hw}'/'
  mkdir -p ${lutdir}
  pfodir=${casedir}'/pfo_output/'
  mkdir -p ${pfodir}
@@ -54,7 +67,8 @@
 
 # Big Loop for Time SnapShots
  timedir=${emvodir}/input/
- file=${timedir}"ftime_file.txt"
+ file=${timedir}"ftime_file_"${casename}".txt"
+ #file=${timedir}"ftime_file.txt"
 
  if [[ "${do_lut}"0 == true0 ]]; then
    calc_lut='true'
@@ -75,7 +89,7 @@
 
    sid=${model_starttime:3:1}${model_starttime:5:1}${model_starttime:7:1} # last digits in year, month and day of modelstart_time
    fid=${forecast_time:2:4} # hhmm of forecast_time
-   jobname=E${sid}${fid}
+   jobname=${jprefx}${sid}${fid}
 
    cp $script ${rundir}/
    sed "s@__INPUTDIR__@${inputdir}@g" -i ${rundir}/$script 
@@ -85,12 +99,17 @@
    sed "s@__FORECAST_TIME__@${forecast_time}@g" -i ${rundir}/$script
    sed "s@__MODEL_STARTTIME__@${model_starttime}@g" -i ${rundir}/$script
    sed "s@__HYDROSET__@${hydroset}@g" -i ${rundir}/$script
-   sed "s@__ITYPE_GSCP__@${itype_gscp}@g" -i ${rundir}/$script
+#CPS   sed "s@__ITYPE_GSCP__@${itype_gscp}@g" -i ${rundir}/$script
+   sed "s@__ITYPE_GSCP__@${itype_gscp_hw}@g" -i ${rundir}/$script
    sed "s@__ITYPE_REFL__@${itype_refl}@g" -i ${rundir}/$script
    sed "s@__LAMBDA_RADAR__@${lambdaradar}@g" -i ${rundir}/$script
    #sed "s@__ATTENUATE__@${att}@g" -i ${rundir}/$script
    sed "s@__PBSSCRIPT__@${pbsscript}@g" -i ${rundir}/$script
    sed "s@__JOBNAME__@${jobname}@g" -i ${rundir}/$script
+   sed "s@__EXE__@${executable}@g" -i ${rundir}/$script
+
+   #Copy grid file to rundir
+   #cp ${inputdir}'/ivr/lfff00000000c.nc' ${inputdir}'/ivr/lfff00000000c'${forecast_time}'.nc' 
 
    #Submit JOB
    cd ${rundir}

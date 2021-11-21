@@ -18,7 +18,7 @@
 ##############################################################
 
 # path to model binary, including the executable:
-EXECUTABLE=${HOME}/emvorado-offline/build_cluma2/cosmo_refl_offline_master_par_rcl-x86-gnu.exe
+EXECUTABLE=__EXE__
 
 #jobdatei=job_emvorado_offline
 jobdatei=__PBSSCRIPT__
@@ -29,17 +29,18 @@ jobdatei=__PBSSCRIPT__
 
 jobclass=batch
 #mem=120            # requested memory in gb
-jobmem=2            # requested memory in gb
+jobmem=4            # requested memory in gb
 
-nprocpernode=48    # number of cores per logical host; <=32
+nprocpernode=4    # number of cores per logical host; <=32
 
 omp_threads=1      # do not change!
-nprocx=8          # nprocx*nprocy+nprocio_radar <= 200 AND a multiple of nprocpernode
-nprocy=6
+nprocx=2          # nprocx*nprocy+nprocio_radar <= 200 AND a multiple of nprocpernode
+nprocy=2
 nprocio_radar=0    # if > 0, apply async radar io
 
 let nproc=nprocx*nprocy+nprocio_radar
-let nnode=(nproc+nprocpernode-1)/nprocpernode
+#let nnode=(nproc+nprocpernode-1)/nprocpernode
+let nnode=(nproc)/nprocpernode
 let mem=nprocpernode*jobmem
 
 maxcputime=700:00:00  # hh:mm:ss
@@ -61,6 +62,7 @@ model_starttime=__MODEL_STARTTIME__
 forecast_time=__FORECAST_TIME__
 
 levtyp=eta
+#modgrid_filename='ivr/lfff00000000c'${forecast_time}'.nc'
 modgrid_filename='ivr/lfff00000000c.nc'
 moddata_filename='lfff'${forecast_time}'.nc'
 
@@ -174,21 +176,22 @@ cat > INPUT_DBZSIM << end_input_dbzsim
   ! 2) Characteristics of the reflectiviy calculation (not for radar simulator,
   !     this here is an independent output of the grid point values!):
   !
-  dbz_meta%itype_refl=1,
+  dbz_meta%itype_refl=${ityperefl},
     ! Flag for using Mie lookup tables for program speedup:
-    dbz_meta%llookup_mie=.false.,
+    dbz_meta%llookup_mie=.true.,
     ! Wavelength of the radar in m:
     dbz_meta%lambda_radar=${lambdaradar},
     !
     ! Do not touch anything below, if you are not sure what that is!
     dbz_meta%station_id=-999999,
     !  (Description can be found in document mielib.pdf)
-    dbz_meta%Tmeltbegin_s=273.15,
-    dbz_meta%Tmeltbegin_g=273.15,
-    dbz_meta%Tmeltbegin_h=273.15,
+    dbz_meta%Tmeltbegin_s=273.16,
+    dbz_meta%Tmeltbegin_g=263.16,
+    dbz_meta%Tmeltbegin_h=263.16,
     dbz_meta%meltdegTmin_s=0.0,
-    dbz_meta%meltdegTmin_g=0.0,
-    dbz_meta%meltdegTmin_h=0.0,
+    dbz_meta%meltdegTmin_g=0.2,
+    dbz_meta%meltdegTmin_h=0.2,
+
     ! Einstellungen fuer itype_refl=1 (effektiver Brechungsindex bei Mie-Streuung):
       dbz_meta%ctype_drysnow_mie=    'masmas      ',
       dbz_meta%ctype_wetsnow_mie=    'mawsasmawsas',
@@ -240,12 +243,8 @@ dom = 1,
 !--------------------------------------------------------
 ! GLOBAL SETTINGS, I.E., THE SAME FOR ALL RADAR STATIONS:
 !--------------------------------------------------------
-!CPS Lookup table
-  itype_mpipar_lookupgen = 2,
-  llookup_interp_mode_dualpol = .true.,
-!CPS
 !
-  ldebug_radsim = .false., !.true.,
+  ldebug_radsim = .true.,
   lout_geom = .false.,
   loutradwind = .false.,
     lfill_vr_backgroundwind = .false.,
@@ -263,13 +262,14 @@ dom = 1,
     !  You can override it for each station by individual settings
     !  in the "dbz_meta"- structure below.
     dbz_meta_glob%itype_refl =${ityperefl},
-    !CPS dbz_meta_glob%itype_Dref_fmelt = 1,   ! only effective for Mie, Tmatrix
-    dbz_meta_glob%itype_Dref_fmelt = 2,        ! for fast lookup table
+    dbz_meta_glob%itype_Dref_fmelt = 1,   ! only effective for Mie, Tmatrix
+    !CPS bug dbz_meta_glob%itype_Dref_fmelt = 2,        ! for fast lookup table
     ! Global switch to enable the use of Mie-lookup tables for all radars. 
     !  This is then the background value for all radars, which can
     !  later be overwritten for the single stations via namelist.
     dbz_meta_glob%llookup_mie = .true., !false.,
       itype_mpipar_lookupgen = 2,
+      llookup_interp_mode_dualpol = .true.,
       pe_start_lookupgen = 0,
       ydir_mielookup_read  = '${ydir_mielookup}',
       ydir_mielookup_write = '${ydir_mielookup}',
@@ -297,21 +297,22 @@ dom = 1,
   ! JM210624:
   ! commented out to trigger default settings, which should be suitable for summer convection
   !CPS
-  !dbz_meta_glob%Tmax_min_i=278.15,
-  !dbz_meta_glob%Tmax_max_i=278.15,
-  !dbz_meta_glob%Tmax_min_s=276.15,
-  !dbz_meta_glob%Tmax_max_s=283.15,
-  !dbz_meta_glob%Tmax_min_g=278.15,
-  !dbz_meta_glob%Tmax_max_g=278.15,
-  !dbz_meta_glob%Tmax_min_h=293.15,
-  !dbz_meta_glob%Tmax_max_h=293.15,
-  !dbz_meta_glob%Tmeltbegin_s=273.15,
-  !dbz_meta_glob%Tmeltbegin_g=273.15,
-  !dbz_meta_glob%Tmeltbegin_h=273.15,
+  !dbz_meta_glob%Tmax_min_i=275.16,
+  !dbz_meta_glob%Tmax_max_i=278.16,
+  !dbz_meta_glob%Tmax_min_s=276.16,
+  !dbz_meta_glob%Tmax_max_s=283.16,
+  !dbz_meta_glob%Tmax_min_g=276.16,
+  !dbz_meta_glob%Tmax_max_g=288.16,
+  !dbz_meta_glob%Tmax_min_h=278.16,
+  !dbz_meta_glob%Tmax_max_h=303.16,
+  !dbz_meta_glob%Tmeltbegin_s=273.16,
+  !dbz_meta_glob%Tmeltbegin_g=263.16,
+  !dbz_meta_glob%Tmeltbegin_h=263.16,
   !dbz_meta_glob%meltdegTmin_s=0.0,
-  !dbz_meta_glob%meltdegTmin_g=0.0,
-  !dbz_meta_glob%meltdegTmin_h=0.0,
+  !dbz_meta_glob%meltdegTmin_g=0.2,
+  !dbz_meta_glob%meltdegTmin_h=0.2,
   !CPS
+
 !
   lvoldata_output = true., !.false., !
     voldata_ostream(1)%format = 'cdfin-mulmom'  ! 'ascii', 'ascii-gzip', 'f90-binary', 'cdfin', 'cdfin-mulmom', 'grib2', 'grib2-mulmom'
