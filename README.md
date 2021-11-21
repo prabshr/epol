@@ -4,7 +4,7 @@
 1) First download EMVORADO-POL source codes from DKRZ
 
 2) Download epol
-git clone https://github.com/epol \
+git clone https://github.com/epol
 
 3) Copy EMVORADO codes to epol
 cp -r emvorado/src epol\
